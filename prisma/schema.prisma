@@ -90,10 +90,10 @@ model Project {
   managerId   String?
 
   // Relations
-  client      Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  manager     User?  @relation("ClientProjects", fields: [managerId], references: [id])
+  client        Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  manager       User?  @relation("ClientProjects", fields: [managerId], references: [id])
   assignedUsers User[] @relation("AssignedProjects")
-  posts       Post[]
+  posts         Post[]
 
   @@map("projects")
 }
@@ -104,25 +104,41 @@ model Post {
   caption     String?    @db.Text
   type        PostType
   status      PostStatus @default(DRAFT)
-  platforms   Platform[]
   scheduledAt DateTime?
   postedAt    DateTime?
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
   // Foreign Keys
-  projectId   String
-  createdById String
+  projectId    String
+  createdById  String
   assignedToId String?
 
   // Relations
-  project     Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  createdBy   User    @relation("CreatedPosts", fields: [createdById], references: [id])
-  assignedTo  User?   @relation("AssignedPosts", fields: [assignedToId], references: [id])
-  assets      Asset[]
-  comments    Comment[]
+  project      Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy    User           @relation("CreatedPosts", fields: [createdById], references: [id])
+  assignedTo   User?          @relation("AssignedPosts", fields: [assignedToId], references: [id])
+  assets       Asset[]
+  comments     Comment[]
+  platforms    PostPlatform[] // Many-to-many relationship
 
   @@map("posts")
+}
+
+// Junction table for Post-Platform relationship
+model PostPlatform {
+  id       String   @id @default(cuid())
+  platform Platform
+
+  // Foreign Keys
+  postId   String
+
+  // Relations
+  post     Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  // Ensure a post can't have duplicate platforms
+  @@unique([postId, platform])
+  @@map("post_platforms")
 }
 
 model Asset {
