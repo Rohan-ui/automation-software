@@ -4,12 +4,13 @@ import { GeistSans } from "geist/font/sans"
 import { GeistMono } from "geist/font/mono"
 import { Analytics } from "@vercel/analytics/next"
 import { SessionProvider } from "@/components/session-provider"
+import { ThemeProvider } from "@/components/theme-provider"
 import { Suspense } from "react"
 import "./globals.css"
 
 export const metadata: Metadata = {
-  title: "v0 App",
-  description: "Created with v0",
+  title: "Post Management System",
+  description: "Social Media Post Management MVP",
   generator: "v0.app",
 }
 
@@ -19,10 +20,12 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className={`font-sans ${GeistSans.variable} ${GeistMono.variable}`}>
         <Suspense fallback={null}>
-          <SessionProvider>{children}</SessionProvider>
+          <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+            <SessionProvider>{children}</SessionProvider>
+          </ThemeProvider>
         </Suspense>
         <Analytics />
       </body>

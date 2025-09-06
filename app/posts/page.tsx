@@ -5,7 +5,10 @@ import { prisma } from "@/lib/prisma"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Plus, FileText, Calendar, User, Eye } from "lucide-react"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Plus, FileText, Calendar, User, Eye, Search, Filter, MoreHorizontal, Trash2, Archive } from "lucide-react"
 import Link from "next/link"
 import { format } from "date-fns"
 
@@ -71,33 +74,122 @@ export default async function PostsPage() {
         )}
       </div>
 
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input placeholder="Search posts..." className="pl-10" />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Select defaultValue="all">
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="draft">Draft</SelectItem>
+                  <SelectItem value="submitted">Submitted</SelectItem>
+                  <SelectItem value="approved">Approved</SelectItem>
+                  <SelectItem value="rejected">Rejected</SelectItem>
+                  <SelectItem value="scheduled">Scheduled</SelectItem>
+                  <SelectItem value="posted">Posted</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select defaultValue="all">
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue placeholder="Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  <SelectItem value="photo">Photo</SelectItem>
+                  <SelectItem value="reel">Reel</SelectItem>
+                  <SelectItem value="story">Story</SelectItem>
+                  <SelectItem value="carousel">Carousel</SelectItem>
+                  <SelectItem value="custom">Custom</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Button variant="outline" size="icon">
+                <Filter className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Status Filter Tabs */}
       <div className="flex space-x-2 overflow-x-auto pb-2">
         {Object.keys(statusColors).map((status) => {
           const count = posts.filter((post) => post.status === status).length
           return (
-            <Badge key={status} variant="outline" className="whitespace-nowrap">
+            <Badge key={status} variant="outline" className="whitespace-nowrap cursor-pointer hover:bg-gray-100">
               {status.charAt(0) + status.slice(1).toLowerCase()} ({count})
             </Badge>
           )
         })}
       </div>
 
+      <div className="hidden" id="bulk-actions">
+        <Card className="border-blue-200 bg-blue-50">
+          <CardContent className="pt-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <span className="text-sm font-medium">0 posts selected</span>
+                <div className="flex space-x-2">
+                  <Button size="sm" variant="outline">
+                    <Archive className="mr-2 h-4 w-4" />
+                    Archive
+                  </Button>
+                  <Button size="sm" variant="outline">
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete
+                  </Button>
+                  <Select>
+                    <SelectTrigger className="w-[140px]">
+                      <SelectValue placeholder="Change Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="draft">Draft</SelectItem>
+                      <SelectItem value="submitted">Submit</SelectItem>
+                      <SelectItem value="approved">Approve</SelectItem>
+                      <SelectItem value="rejected">Reject</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <Button size="sm" variant="ghost">
+                Clear Selection
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {posts.map((post) => (
-          <Card key={post.id} className="hover:shadow-md transition-shadow">
+          <Card key={post.id} className="hover:shadow-md transition-shadow group">
             <CardHeader>
               <div className="flex items-start justify-between">
                 <div className="flex items-center space-x-3">
+                  <Checkbox className="mt-1" />
                   <div className="text-2xl">{typeIcons[post.type]}</div>
                   <div className="flex-1">
                     <CardTitle className="text-lg line-clamp-1">{post.title}</CardTitle>
                     <CardDescription>{post.project.client.name}</CardDescription>
                   </div>
                 </div>
-                <Badge className={statusColors[post.status]}>
-                  {post.status.charAt(0) + post.status.slice(1).toLowerCase()}
-                </Badge>
+                <div className="flex items-center space-x-2">
+                  <Badge className={statusColors[post.status]}>
+                    {post.status.charAt(0) + post.status.slice(1).toLowerCase()}
+                  </Badge>
+                  <Button variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100 transition-opacity">
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
