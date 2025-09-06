@@ -21,6 +21,7 @@ import {
   Sun,
   UserCog,
   User,
+  Loader2,
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -38,12 +39,31 @@ const navigation = [
 ]
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { data: session } = useSession()
+  const { data: session, status } = useSession()
   const pathname = usePathname()
   const { theme, setTheme } = useTheme()
 
-  if (!session) {
-    return null
+  if (status === "loading") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center space-y-4">
+          <Loader2 className="h-8 w-8 animate-spin" />
+          <p className="text-muted-foreground">Loading dashboard...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (status === "unauthenticated" || !session) {
+    window.location.href = "/auth/signin"
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center space-y-4">
+          <Loader2 className="h-8 w-8 animate-spin" />
+          <p className="text-muted-foreground">Redirecting to login...</p>
+        </div>
+      </div>
+    )
   }
 
   const filteredNavigation = navigation.filter((item) => {

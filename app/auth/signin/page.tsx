@@ -3,7 +3,7 @@
 import type React from "react"
 import Link from "next/link"
 import { useState } from "react"
-import { signIn, getSession } from "next-auth/react"
+import { signIn } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -14,11 +14,13 @@ export default function SignInPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState("")
   const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
+    setError("")
 
     try {
       const result = await signIn("credentials", {
@@ -28,14 +30,13 @@ export default function SignInPage() {
       })
 
       if (result?.ok) {
-        await getSession()
         router.push("/dashboard")
-        router.refresh()
       } else {
-        alert("Invalid credentials")
+        setError("Invalid credentials. Please try again.")
       }
     } catch (error) {
       console.error("Sign in error:", error)
+      setError("An error occurred during sign in. Please try again.")
     } finally {
       setIsLoading(false)
     }
@@ -50,6 +51,7 @@ export default function SignInPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
+            {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">{error}</div>}
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
@@ -83,7 +85,7 @@ export default function SignInPage() {
           </div>
           <div className="mt-4 text-sm text-gray-600">
             <p>Demo credentials:</p>
-            <p>Email: admin@example.com</p>
+            <p>Email: admin@agency.com</p>
             <p>Password: password123</p>
           </div>
         </CardContent>
