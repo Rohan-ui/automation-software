@@ -69,6 +69,7 @@ model User {
   comments          Comment[]
   notifications     Notification[]
   auditLogs         AuditLog[] // Added audit logs relation
+  sentInvites       Invite[]
 
   @@map("users")
 }
@@ -244,8 +245,7 @@ model Invite {
   createdAt DateTime @default(now())
   invitedBy String
 
-  // Relations
-  inviter   User @relation(fields: [invitedBy], references: [id])
 
+  inviter   User @relation(fields: [invitedBy], references: [id])
   @@map("invites")
 }
