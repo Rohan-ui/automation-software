@@ -1,0 +1,176 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  DESIGNER
+  CLIENT
+}
+
+enum PostType {
+  PHOTO
+  REEL
+  STORY
+  CAROUSEL
+  CUSTOM
+}
+
+enum PostStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+  SCHEDULED
+  POSTED
+}
+
+enum Platform {
+  INSTAGRAM
+  FACEBOOK
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  role      UserRole
+  avatar    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  clientProjects    Project[] @relation("ClientProjects")
+  assignedProjects  Project[] @relation("AssignedProjects")
+  createdPosts      Post[]    @relation("CreatedPosts")
+  assignedPosts     Post[]    @relation("AssignedPosts")
+  comments          Comment[]
+  notifications     Notification[]
+
+  @@map("users")
+}
+
+model Client {
+  id          String   @id @default(cuid())
+  name        String
+  email       String   @unique
+  phone       String?
+  company     String?
+  avatar      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  projects    Project[]
+
+  @@map("clients")
+}
+
+model Project {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  startDate   DateTime
+  endDate     DateTime?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Foreign Keys
+  clientId    String
+  managerId   String?
+
+  // Relations
+  client      Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  manager     User?  @relation("ClientProjects", fields: [managerId], references: [id])
+  assignedUsers User[] @relation("AssignedProjects")
+  posts       Post[]
+
+  @@map("projects")
+}
+
+model Post {
+  id          String     @id @default(cuid())
+  title       String
+  caption     String?    @db.Text
+  type        PostType
+  status      PostStatus @default(DRAFT)
+  platforms   Platform[]
+  scheduledAt DateTime?
+  postedAt    DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  // Foreign Keys
+  projectId   String
+  createdById String
+  assignedToId String?
+
+  // Relations
+  project     Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy   User    @relation("CreatedPosts", fields: [createdById], references: [id])
+  assignedTo  User?   @relation("AssignedPosts", fields: [assignedToId], references: [id])
+  assets      Asset[]
+  comments    Comment[]
+
+  @@map("posts")
+}
+
+model Asset {
+  id        String   @id @default(cuid())
+  filename  String
+  url       String
+  type      String   // image, video, etc.
+  size      Int?
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  // Foreign Keys
+  postId    String
+
+  // Relations
+  post      Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@map("assets")
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+
+  // Foreign Keys
+  postId    String
+  userId    String
+
+  // Relations
+  post      Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User @relation(fields: [userId], references: [id])
+
+  @@map("comments")
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  title     String
+  message   String   @db.Text
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  // Foreign Keys
+  userId    String
+
+  // Relations
+  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
