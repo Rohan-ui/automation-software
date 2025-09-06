@@ -7,47 +7,75 @@ import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { NotificationCenter } from "./notification-center"
-import { LayoutDashboard, Users, FileText, Calendar, Settings, LogOut, FolderOpen } from "lucide-react"
+import {
+  LayoutDashboard,
+  Users,
+  FileText,
+  Calendar,
+  Settings,
+  LogOut,
+  FolderOpen,
+  ImageIcon,
+  BarChart3,
+  Moon,
+  Sun,
+  UserCog,
+  User,
+} from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { useTheme } from "next-themes"
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Projects", href: "/projects", icon: FolderOpen },
   { name: "Posts", href: "/posts", icon: FileText },
   { name: "Calendar", href: "/calendar", icon: Calendar },
+  { name: "Assets", href: "/assets", icon: ImageIcon },
+  { name: "Reports", href: "/reports", icon: BarChart3 },
   { name: "Clients", href: "/clients", icon: Users },
+  { name: "User Management", href: "/users", icon: UserCog, roles: ["ADMIN", "MANAGER"] },
 ]
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { data: session } = useSession()
   const pathname = usePathname()
+  const { theme, setTheme } = useTheme()
 
   if (!session) {
     return null
   }
 
   const filteredNavigation = navigation.filter((item) => {
+    if (item.roles && !item.roles.includes(session.user.role)) {
+      return false
+    }
+
     if (session.user.role === "CLIENT") {
       return ["Dashboard", "Posts"].includes(item.name)
     }
     if (session.user.role === "DESIGNER") {
-      return ["Dashboard", "Projects", "Posts", "Calendar"].includes(item.name)
+      return ["Dashboard", "Projects", "Posts", "Calendar", "Assets"].includes(item.name)
     }
     return true // Admin and Manager see all
   })
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b">
+      <header className="bg-card shadow-sm border-b">
         <div className="flex items-center justify-between px-6 py-4">
           <div className="flex items-center space-x-4">
-            <h1 className="text-xl font-semibold text-gray-900">Post Management System</h1>
+            <h1 className="text-xl font-semibold">Post Management System</h1>
           </div>
 
           <div className="flex items-center space-x-4">
-            <span className="text-sm text-gray-600">{session.user.role}</span>
+            <span className="text-sm text-muted-foreground">{session.user.role}</span>
+            <Button variant="ghost" size="sm" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
+              <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+              <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+              <span className="sr-only">Toggle theme</span>
+            </Button>
             <NotificationCenter />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -58,6 +86,12 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-56" align="end">
+                <DropdownMenuItem asChild>
+                  <Link href="/profile">
+                    <User className="mr-2 h-4 w-4" />
+                    Profile
+                  </Link>
+                </DropdownMenuItem>
                 <DropdownMenuItem>
                   <Settings className="mr-2 h-4 w-4" />
                   Settings
@@ -74,7 +108,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
 
       <div className="flex">
         {/* Sidebar */}
-        <nav className="w-64 bg-white shadow-sm min-h-screen">
+        <nav className="w-64 bg-card shadow-sm min-h-screen border-r">
           <div className="p-4">
             <ul className="space-y-2">
               {filteredNavigation.map((item) => {
@@ -84,7 +118,9 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
                     <Link
                       href={item.href}
                       className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                        isActive ? "bg-blue-100 text-blue-700" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                        isActive
+                          ? "bg-primary/10 text-primary"
+                          : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                       }`}
                     >
                       <item.icon className="mr-3 h-4 w-4" />
@@ -98,7 +134,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
         </nav>
 
         {/* Main content */}
-        <main className="flex-1 p-6">{children}</main>
+        <main className="flex-1 p-6 bg-background">{children}</main>
       </div>
     </div>
   )
