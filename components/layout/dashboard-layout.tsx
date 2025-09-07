@@ -40,6 +40,7 @@ const navigation = [
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession()
+  console.log("Session:", session)
   const pathname = usePathname()
   const { theme, setTheme } = useTheme()
 

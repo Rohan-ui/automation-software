@@ -10,7 +10,7 @@ import Link from "next/link"
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions)
-
+  console.log("Session:", session)
   if (!session) {
     redirect("/auth/signin")
   }
