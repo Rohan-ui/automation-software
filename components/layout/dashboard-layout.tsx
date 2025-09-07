@@ -29,13 +29,13 @@ import { useTheme } from "next-themes"
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { name: "Projects", href: "/projects", icon: FolderOpen },
-  { name: "Posts", href: "/posts", icon: FileText },
-  { name: "Calendar", href: "/calendar", icon: Calendar },
-  { name: "Assets", href: "/assets", icon: ImageIcon },
-  { name: "Reports", href: "/reports", icon: BarChart3 },
-  { name: "Clients", href: "/clients", icon: Users },
-  { name: "User Management", href: "/users", icon: UserCog, roles: ["ADMIN", "MANAGER"] },
+  { name: "Projects", href: "/dashboard/projects", icon: FolderOpen },
+  { name: "Posts", href: "/dashboard/posts", icon: FileText },
+  { name: "Calendar", href: "/dashboard/calendar", icon: Calendar },
+  { name: "Assets", href: "/dashboard/assets", icon: ImageIcon },
+  { name: "Reports", href: "/dashboard/reports", icon: BarChart3 },
+  { name: "Clients", href: "/dashboard/clients", icon: Users },
+  { name: "User Management", href: "/dashboard/users", icon: UserCog, roles: ["ADMIN", "MANAGER"] },
 ]
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -107,14 +107,16 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-56" align="end">
                 <DropdownMenuItem asChild>
-                  <Link href="/profile">
+                  <Link href="/dashboard/profile">
                     <User className="mr-2 h-4 w-4" />
                     Profile
                   </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <Settings className="mr-2 h-4 w-4" />
-                  Settings
+                <DropdownMenuItem asChild>
+                  <Link href="/dashboard/settings">
+                    <Settings className="mr-2 h-4 w-4" />
+                    Settings
+                  </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => signOut()}>
                   <LogOut className="mr-2 h-4 w-4" />
