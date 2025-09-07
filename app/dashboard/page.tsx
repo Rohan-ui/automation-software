@@ -209,7 +209,7 @@ export default async function DashboardPage() {
                       {post.project.client.name} • by {post.createdBy.name}
                     </p>
                     <p className="text-xs text-gray-400 mt-1">
-                      {post.type} • {post.platforms.join(", ")}
+                      {post.type} • {post?.platforms?.join(", ")}
                     </p>
                   </div>
                 </div>

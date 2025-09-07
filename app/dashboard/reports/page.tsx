@@ -4,8 +4,8 @@ import { redirect } from "next/navigation"
 import { prisma } from "@/lib/prisma"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts"
 import { TrendingUp, TrendingDown, Users, Calendar, CheckCircle, XCircle } from "lucide-react"
+import { ReportsCharts } from "@/components/reports-charts"
 
 async function getReportData() {
   const [
@@ -53,12 +53,10 @@ async function getReportData() {
     postsByStatus,
     postsByType,
     monthlyTrends,
-    approvalRate: totalPosts > 0 ? ((approvedPosts / totalPosts) * 100).toFixed(1) : 0,
-    rejectionRate: totalPosts > 0 ? ((rejectedPosts / totalPosts) * 100).toFixed(1) : 0,
+    approvalRate: totalPosts > 0 ? ((approvedPosts / totalPosts) * 100).toFixed(1) : "0",
+    rejectionRate: totalPosts > 0 ? ((rejectedPosts / totalPosts) * 100).toFixed(1) : "0",
   }
 }
-
-const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884D8"]
 
 export default async function ReportsPage() {
   const session = await getServerSession(authOptions)
@@ -136,52 +134,11 @@ export default async function ReportsPage() {
         </Card>
       </div>
 
-      {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Posts by Status</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={statusChartData}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {statusChartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Posts by Type</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={typeChartData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="value" fill="#8884d8" />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Charts - Moved to Client Component */}
+      {/* <ReportsCharts 
+        statusChartData={statusChartData}
+        typeChartData={typeChartData}
+      /> */}
 
       {/* Detailed Metrics */}
       <Card>
