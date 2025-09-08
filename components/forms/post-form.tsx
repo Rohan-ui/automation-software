@@ -13,14 +13,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, Upload, X, AlertTriangle, CheckCircle } from "lucide-react"
+import { ArrowLeft, Upload, X, AlertTriangle, CheckCircle, Calendar, Users } from "lucide-react"
 import Link from "next/link"
-import { validatePost, validateAsset, type ValidationResult } from "@/lib/validation"
+import type { ValidationResult } from "@/lib/validation"
 
 interface Project {
   id: string
   name: string
-  client: { name: string }
+  client: {
+    id: string
+    name: string
+    email?: string
+  }
 }
 
 interface PostFormProps {
@@ -36,18 +40,12 @@ interface PostFormProps {
   }
 }
 
-const postTypes = [
-  { value: "PHOTO", label: "Photo Post", icon: "📷" },
-  { value: "REEL", label: "Reel/Video", icon: "🎬" },
-  { value: "STORY", label: "Story", icon: "📱" },
-  { value: "CAROUSEL", label: "Carousel", icon: "🎠" },
-  { value: "CUSTOM", label: "Custom", icon: "✨" },
-]
-
-const platforms = [
-  { value: "INSTAGRAM", label: "Instagram" },
-  { value: "FACEBOOK", label: "Facebook" },
-]
+interface Utility {
+  id: string
+  name: string
+  type: string
+  values: string[]
+}
 
 export function PostForm({ projects, post }: PostFormProps) {
   const [formData, setFormData] = useState({
@@ -62,27 +60,125 @@ export function PostForm({ projects, post }: PostFormProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [validation, setValidation] = useState<ValidationResult>({ isValid: true, errors: [], warnings: [] })
   const [assetValidation, setAssetValidation] = useState<{ [key: number]: ValidationResult }>({})
+  const [postTypes, setPostTypes] = useState<
+    Array<{ value: string; label: string; icon: string; description: string }>
+  >([])
+  const [platforms, setPlatforms] = useState<Array<{ value: string; label: string; color: string }>>([])
+  const [utilitiesLoading, setUtilitiesLoading] = useState(true)
   const router = useRouter()
 
   useEffect(() => {
-    if (formData.caption || formData.platforms.length > 0 || formData.scheduledAt) {
-      const result = validatePost(formData, formData.platforms)
-      setValidation(result)
-    }
-  }, [formData])
+    const fetchUtilities = async () => {
+      try {
+        const response = await fetch("/api/utilities")
+        if (response.ok) {
+          const utilities: Utility[] = await response.json()
 
-  useEffect(() => {
-    const newAssetValidation: { [key: number]: ValidationResult } = {}
-    assets.forEach((asset, index) => {
-      formData.platforms.forEach((platform) => {
-        const result = validateAsset(asset, platform, formData.type)
-        if (!result.isValid) {
-          newAssetValidation[index] = result
+          // Process post types
+          const postTypeUtility = utilities.find((u) => u.type === "POST_TYPE")
+          if (postTypeUtility) {
+            const dynamicPostTypes = postTypeUtility.values.map((value, index) => ({
+              value: value.toUpperCase().replace(/\s+/g, "_"),
+              label: value,
+              icon: getPostTypeIcon(value),
+              description: getPostTypeDescription(value),
+            }))
+            setPostTypes(dynamicPostTypes)
+          } else {
+            // Fallback to default post types
+            setPostTypes([
+              { value: "PHOTO", label: "Photo Post", icon: "📷", description: "Single image post" },
+              { value: "REEL", label: "Reel/Video", icon: "🎬", description: "Short video content" },
+              { value: "STORY", label: "Story", icon: "📱", description: "24-hour story content" },
+              { value: "CAROUSEL", label: "Carousel", icon: "🎠", description: "Multiple images/videos" },
+              { value: "VIDEO", label: "Video", icon: "🎥", description: "Long-form video" },
+              { value: "CUSTOM", label: "Custom", icon: "✨", description: "Custom content type" },
+            ])
+          }
+
+          // Process platforms
+          const platformUtility = utilities.find((u) => u.type === "PLATFORM")
+          if (platformUtility) {
+            const dynamicPlatforms = platformUtility.values.map((value) => ({
+              value: value.toUpperCase().replace(/\s+/g, "_"),
+              label: value,
+              color: getPlatformColor(value),
+            }))
+            setPlatforms(dynamicPlatforms)
+          } else {
+            // Fallback to default platforms
+            setPlatforms([
+              { value: "INSTAGRAM", label: "Instagram", color: "bg-pink-100 text-pink-800" },
+              { value: "FACEBOOK", label: "Facebook", color: "bg-blue-100 text-blue-800" },
+              { value: "LINKEDIN", label: "LinkedIn", color: "bg-blue-100 text-blue-900" },
+              { value: "YOUTUBE", label: "YouTube", color: "bg-red-100 text-red-800" },
+            ])
+          }
         }
-      })
-    })
-    setAssetValidation(newAssetValidation)
-  }, [assets, formData.platforms, formData.type])
+      } catch (error) {
+        console.error("Failed to fetch utilities:", error)
+        // Use fallback values on error
+        setPostTypes([
+          { value: "PHOTO", label: "Photo Post", icon: "📷", description: "Single image post" },
+          { value: "REEL", label: "Reel/Video", icon: "🎬", description: "Short video content" },
+          { value: "STORY", label: "Story", icon: "📱", description: "24-hour story content" },
+          { value: "CAROUSEL", label: "Carousel", icon: "🎠", description: "Multiple images/videos" },
+          { value: "VIDEO", label: "Video", icon: "🎥", description: "Long-form video" },
+          { value: "CUSTOM", label: "Custom", icon: "✨", description: "Custom content type" },
+        ])
+        setPlatforms([
+          { value: "INSTAGRAM", label: "Instagram", color: "bg-pink-100 text-pink-800" },
+          { value: "FACEBOOK", label: "Facebook", color: "bg-blue-100 text-blue-800" },
+          { value: "LINKEDIN", label: "LinkedIn", color: "bg-blue-100 text-blue-900" },
+          { value: "YOUTUBE", label: "YouTube", color: "bg-red-100 text-red-800" },
+        ])
+      } finally {
+        setUtilitiesLoading(false)
+      }
+    }
+
+    fetchUtilities()
+  }, [])
+
+  const getPostTypeIcon = (type: string): string => {
+    const iconMap: { [key: string]: string } = {
+      "Photo Post": "📷",
+      Story: "📱",
+      Reel: "🎬",
+      Carousel: "🎠",
+      Video: "🎥",
+      "Live Stream": "📺",
+      IGTV: "📹",
+      Other: "✨",
+    }
+    return iconMap[type] || "📄"
+  }
+
+  const getPostTypeDescription = (type: string): string => {
+    const descMap: { [key: string]: string } = {
+      "Photo Post": "Single image post",
+      Story: "24-hour story content",
+      Reel: "Short video content",
+      Carousel: "Multiple images/videos",
+      Video: "Long-form video",
+      "Live Stream": "Real-time streaming",
+      IGTV: "Long-form vertical video",
+      Other: "Custom content type",
+    }
+    return descMap[type] || "Custom content"
+  }
+
+  const getPlatformColor = (platform: string): string => {
+    const colorMap: { [key: string]: string } = {
+      Instagram: "bg-pink-100 text-pink-800",
+      Facebook: "bg-blue-100 text-blue-800",
+      LinkedIn: "bg-blue-100 text-blue-900",
+      YouTube: "bg-red-100 text-red-800",
+      Twitter: "bg-sky-100 text-sky-800",
+      TikTok: "bg-gray-100 text-gray-800",
+    }
+    return colorMap[platform] || "bg-gray-100 text-gray-800"
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -93,31 +189,39 @@ export function PostForm({ projects, post }: PostFormProps) {
 
     setIsLoading(true)
 
-    const submitData = new FormData()
-    Object.entries(formData).forEach(([key, value]) => {
-      if (key === "platforms") {
-        submitData.append(key, JSON.stringify(value))
+    try {
+      const submitData = new FormData()
+      Object.entries(formData).forEach(([key, value]) => {
+        if (key === "platforms") {
+          submitData.append(key, JSON.stringify(value))
+        } else {
+          submitData.append(key, value as string)
+        }
+      })
+
+      assets.forEach((file, index) => {
+        submitData.append(`asset-${index}`, file)
+      })
+
+      const url = post ? `/api/posts/${post.id}` : "/api/posts"
+      const method = post ? "PUT" : "POST"
+
+      const response = await fetch(url, {
+        method,
+        body: submitData,
+      })
+
+      if (response.ok) {
+        router.push("/dashboard/posts")
       } else {
-        submitData.append(key, value as string)
+        const errorData = await response.json()
+        alert(`Error saving post: ${errorData.error || "Unknown error"}`)
       }
-    })
-
-    assets.forEach((file, index) => {
-      submitData.append(`asset-${index}`, file)
-    })
-
-    const url = post ? `/api/posts/${post.id}` : "/api/posts"
-    const method = post ? "PUT" : "POST"
-
-    const response = await fetch(url, {
-      method,
-      body: submitData,
-    })
-
-    if (response.ok) {
-      router.push("/posts")
-    } else {
-      alert("Error saving post")
+    } catch (error) {
+      console.error("Error submitting form:", error)
+      alert("Network error. Please try again.")
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -154,30 +258,77 @@ export function PostForm({ projects, post }: PostFormProps) {
     setAssets(assets.filter((_, i) => i !== index))
   }
 
-  const getCharacterCount = (text: string, platform: string) => {
+  const getCharacterCount = (text: string) => {
     const limits = {
       INSTAGRAM: 2200,
       FACEBOOK: 63206,
+      LINKEDIN: 3000,
+      YOUTUBE: 5000,
     }
+    const maxLimit =
+      formData.platforms.length > 0
+        ? Math.min(...formData.platforms.map((p) => limits[p as keyof typeof limits] || 2200))
+        : 2200
+
     return {
       current: text.length,
-      max: Math.min(...formData.platforms.map((p) => limits[p as keyof typeof limits] || 2200)),
+      max: maxLimit,
     }
+  }
+
+  const getHashtagCount = (text: string) => {
+    return (text.match(/#\w+/g) || []).length
+  }
+
+  const selectedProject = projects.find((p) => p.id === formData.projectId)
+
+  if (utilitiesLoading) {
+    return (
+      <Card>
+        <CardContent className="py-12">
+          <div className="animate-pulse space-y-4">
+            <div className="h-8 bg-gray-200 rounded w-1/4"></div>
+            <div className="h-32 bg-gray-200 rounded"></div>
+            <div className="h-32 bg-gray-200 rounded"></div>
+          </div>
+        </CardContent>
+      </Card>
+    )
   }
 
   return (
     <Card>
       <CardHeader>
         <div className="flex items-center space-x-4">
-          <Link href="/posts">
+          <Link href="/dashboard/posts">
             <Button variant="ghost" size="sm">
               <ArrowLeft className="h-4 w-4" />
             </Button>
           </Link>
-          <CardTitle>{post ? "Edit Post" : "New Post"}</CardTitle>
+          <div>
+            <CardTitle>{post ? "Edit Post" : "New Post"}</CardTitle>
+            {selectedProject && (
+              <p className="text-sm text-gray-600 mt-1">
+                <Users className="inline h-4 w-4 mr-1" />
+                {selectedProject.name} - {selectedProject.client.name}
+              </p>
+            )}
+          </div>
         </div>
       </CardHeader>
       <CardContent>
+        {projects.length === 0 && (
+          <Alert className="mb-6">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              No active projects available. You need to create a project before you can create posts.
+              <Link href="/dashboard/projects/new" className="ml-2 text-blue-600 hover:underline">
+                Create Project
+              </Link>
+            </AlertDescription>
+          </Alert>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-6">
           {validation.errors.length > 0 && (
             <Alert variant="destructive">
@@ -212,7 +363,7 @@ export function PostForm({ projects, post }: PostFormProps) {
                 id="title"
                 value={formData.title}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                placeholder="Enter post title"
+                placeholder="Enter a descriptive title for your post"
                 required
               />
             </div>
@@ -221,14 +372,18 @@ export function PostForm({ projects, post }: PostFormProps) {
               <Select
                 value={formData.projectId}
                 onValueChange={(value) => setFormData({ ...formData, projectId: value })}
+                disabled={projects.length === 0}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select project" />
+                  <SelectValue placeholder={projects.length === 0 ? "No projects available" : "Select project"} />
                 </SelectTrigger>
                 <SelectContent>
                   {projects.map((project) => (
                     <SelectItem key={project.id} value={project.id}>
-                      {project.name} - {project.client.name}
+                      <div className="flex flex-col">
+                        <span className="font-medium">{project.name}</span>
+                        <span className="text-xs text-gray-500">{project.client.name}</span>
+                      </div>
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -237,8 +392,8 @@ export function PostForm({ projects, post }: PostFormProps) {
           </div>
 
           <div className="space-y-2">
-            <Label>Post Type *</Label>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            <Label>Content Type *</Label>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
               {postTypes.map((type) => (
                 <div
                   key={type.value}
@@ -252,6 +407,7 @@ export function PostForm({ projects, post }: PostFormProps) {
                   <div className="text-center">
                     <div className="text-2xl mb-1">{type.icon}</div>
                     <div className="text-sm font-medium">{type.label}</div>
+                    <div className="text-xs text-gray-500 mt-1">{type.description}</div>
                   </div>
                 </div>
               ))}
@@ -259,16 +415,28 @@ export function PostForm({ projects, post }: PostFormProps) {
           </div>
 
           <div className="space-y-2">
-            <Label>Platforms *</Label>
-            <div className="flex space-x-4">
+            <Label>
+              Platform(s) * <span className="text-sm text-gray-500">(Multi-select)</span>
+            </Label>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {platforms.map((platform) => (
-                <div key={platform.value} className="flex items-center space-x-2">
-                  <Checkbox
-                    id={platform.value}
-                    checked={formData.platforms.includes(platform.value)}
-                    onCheckedChange={(checked) => handlePlatformChange(platform.value, checked as boolean)}
-                  />
-                  <Label htmlFor={platform.value}>{platform.label}</Label>
+                <div
+                  key={platform.value}
+                  className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                    formData.platforms.includes(platform.value)
+                      ? "border-blue-500 bg-blue-50"
+                      : "border-gray-200 hover:border-gray-300"
+                  }`}
+                  onClick={() => handlePlatformChange(platform.value, !formData.platforms.includes(platform.value))}
+                >
+                  <div className="flex items-center space-x-2">
+                    <Checkbox checked={formData.platforms.includes(platform.value)} readOnly />
+                    <Label className="cursor-pointer">
+                      <Badge className={platform.color} variant="secondary">
+                        {platform.label}
+                      </Badge>
+                    </Label>
+                  </div>
                 </div>
               ))}
             </div>
@@ -277,46 +445,51 @@ export function PostForm({ projects, post }: PostFormProps) {
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label htmlFor="caption">Caption</Label>
-              {formData.caption && formData.platforms.length > 0 && (
-                <Badge
-                  variant={
-                    getCharacterCount(formData.caption, formData.platforms[0]).current >
-                    getCharacterCount(formData.caption, formData.platforms[0]).max
-                      ? "destructive"
-                      : "secondary"
-                  }
-                >
-                  {getCharacterCount(formData.caption, formData.platforms[0]).current}/
-                  {getCharacterCount(formData.caption, formData.platforms[0]).max}
-                </Badge>
-              )}
+              <div className="flex items-center space-x-2">
+                {formData.caption && (
+                  <>
+                    <Badge
+                      variant={
+                        getCharacterCount(formData.caption).current > getCharacterCount(formData.caption).max
+                          ? "destructive"
+                          : "secondary"
+                      }
+                    >
+                      {getCharacterCount(formData.caption).current}/{getCharacterCount(formData.caption).max}
+                    </Badge>
+                    <Badge variant="outline">#{getHashtagCount(formData.caption)} hashtags</Badge>
+                  </>
+                )}
+              </div>
             </div>
             <Textarea
               id="caption"
               value={formData.caption}
               onChange={(e) => setFormData({ ...formData, caption: e.target.value })}
-              placeholder="Write your post caption..."
+              placeholder="Write your post caption... Use #hashtags to increase reach"
               rows={4}
             />
-            {formData.caption && (
-              <div className="text-xs text-muted-foreground">
-                Hashtags: {(formData.caption.match(/#\w+/g) || []).length}
-              </div>
-            )}
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="scheduledAt">Schedule (Optional)</Label>
+            <Label htmlFor="scheduledAt">
+              <Calendar className="inline h-4 w-4 mr-1" />
+              Schedule (Optional)
+            </Label>
             <Input
               id="scheduledAt"
               type="datetime-local"
               value={formData.scheduledAt}
               onChange={(e) => setFormData({ ...formData, scheduledAt: e.target.value })}
+              min={new Date().toISOString().slice(0, 16)}
             />
+            <p className="text-xs text-gray-500">
+              Leave empty to save as draft. Scheduled posts will be published automatically.
+            </p>
           </div>
 
           <div className="space-y-2">
-            <Label>Assets</Label>
+            <Label htmlFor="assets">Assets</Label>
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-6">
               <div className="text-center">
                 <Upload className="mx-auto h-12 w-12 text-gray-400" />
@@ -397,8 +570,10 @@ export function PostForm({ projects, post }: PostFormProps) {
           </div>
 
           <div className="flex justify-end space-x-4 pt-4">
-            <Link href="/posts">
-              <Button variant="outline">Cancel</Button>
+            <Link href="/dashboard/posts">
+              <Button variant="outline" disabled={isLoading}>
+                Cancel
+              </Button>
             </Link>
             <Button
               type="submit"
@@ -408,7 +583,8 @@ export function PostForm({ projects, post }: PostFormProps) {
                 !formData.projectId ||
                 formData.platforms.length === 0 ||
                 !validation.isValid ||
-                Object.keys(assetValidation).length > 0
+                Object.keys(assetValidation).length > 0 ||
+                projects.length === 0
               }
             >
               {!validation.isValid || Object.keys(assetValidation).length > 0 ? (

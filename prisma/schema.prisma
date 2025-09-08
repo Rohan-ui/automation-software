@@ -245,7 +245,17 @@ model Invite {
   createdAt DateTime @default(now())
   invitedBy String
 
-
   inviter   User @relation(fields: [invitedBy], references: [id])
   @@map("invites")
+}
+
+model Utility {
+  id        String   @id @default(cuid())
+  name      String
+  type      String   // PLATFORM, POST_TYPE, etc.
+  values    Json     // Array of string values
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("utilities")
 }

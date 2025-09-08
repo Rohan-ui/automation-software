@@ -41,9 +41,10 @@ interface PostDetailProps {
     role: string
     name: string
   }
+  isPublicView?: boolean // Added optional prop for public view styling
 }
 
-export function PostDetail({ post, currentUser }: PostDetailProps) {
+export function PostDetail({ post, currentUser, isPublicView = false }: PostDetailProps) {
   const [comment, setComment] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
@@ -110,7 +111,7 @@ export function PostDetail({ post, currentUser }: PostDetailProps) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
-          <Link href="/posts">
+          <Link href={isPublicView ? "/posts" : "/dashboard/posts"}>
             <Button variant="ghost" size="sm">
               <ArrowLeft className="h-4 w-4" />
             </Button>
@@ -134,7 +135,7 @@ export function PostDetail({ post, currentUser }: PostDetailProps) {
             />
           )}
           {canEdit && (
-            <Link href={`/posts/${post.id}/edit`}>
+            <Link href={`/dashboard/posts/${post.id}/edit`}>
               <Button variant="outline">Edit Post</Button>
             </Link>
           )}
@@ -153,7 +154,9 @@ export function PostDetail({ post, currentUser }: PostDetailProps) {
                   <CardTitle className="flex items-center space-x-2">
                     <span>{post.type} Post</span>
                   </CardTitle>
-                  <CardDescription>Platforms: {post.platforms.join(", ")}</CardDescription>
+                  <CardDescription>
+                    Platforms: {post.platforms?.map((p: any) => p.platform).join(", ") || "Not specified"}
+                  </CardDescription>
                 </div>
               </div>
             </CardHeader>
@@ -181,9 +184,17 @@ export function PostDetail({ post, currentUser }: PostDetailProps) {
                     {post.assets.map((asset: any) => (
                       <div
                         key={asset.id}
-                        className="aspect-square bg-gray-100 rounded-lg flex items-center justify-center"
+                        className="aspect-square bg-gray-100 rounded-lg flex items-center justify-center border"
                       >
-                        <span className="text-xs text-gray-600">{asset.filename}</span>
+                        {asset.url ? (
+                          <img
+                            src={asset.url || "/placeholder.svg"}
+                            alt={asset.filename}
+                            className="w-full h-full object-cover rounded-lg"
+                          />
+                        ) : (
+                          <span className="text-xs text-gray-600 text-center p-2">{asset.filename}</span>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -194,7 +205,11 @@ export function PostDetail({ post, currentUser }: PostDetailProps) {
 
           {/* Platform Integration */}
           {["APPROVED", "SCHEDULED", "POSTED"].includes(post.status) && (
-            <PlatformIntegration postId={post.id} platforms={post.platforms} status={post.status} />
+            <PlatformIntegration
+              postId={post.id}
+              platforms={post.platforms?.map((p: any) => p.platform) || []}
+              status={post.status}
+            />
           )}
 
           {/* Action Buttons */}

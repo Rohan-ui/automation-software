@@ -18,6 +18,7 @@ export async function POST(request: NextRequest) {
     const platforms = JSON.parse(formData.get("platforms") as string)
     const projectId = formData.get("projectId") as string
     const scheduledAt = formData.get("scheduledAt") as string
+    const assignedToId = formData.get("assignedToId") as string
 
     const post = await prisma.post.create({
       data: {
@@ -27,6 +28,7 @@ export async function POST(request: NextRequest) {
         platforms: platforms,
         projectId,
         createdById: session.user.id,
+        assignedToId: assignedToId || null,
         scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
       },
       include: {
@@ -34,6 +36,7 @@ export async function POST(request: NextRequest) {
           include: { client: true },
         },
         createdBy: true,
+        assignedTo: true,
         assets: true,
       },
     })
@@ -48,7 +51,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
 
@@ -56,7 +59,30 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    const { searchParams } = new URL(request.url)
+    const assignedToMe = searchParams.get("assignedToMe") === "true"
+    const status = searchParams.get("status")
+    const projectId = searchParams.get("projectId")
+
+    const whereClause: any = {}
+
+    // Role-based filtering
+    if (session.user.role === "CLIENT") {
+      whereClause.project = { client: { email: session.user.email } }
+    } else if (session.user.role === "DESIGNER" && assignedToMe) {
+      whereClause.assignedToId = session.user.id
+    }
+
+    // Additional filters
+    if (status) {
+      whereClause.status = status
+    }
+    if (projectId) {
+      whereClause.projectId = projectId
+    }
+
     const posts = await prisma.post.findMany({
+      where: whereClause,
       include: {
         project: {
           include: { client: true },
@@ -64,6 +90,11 @@ export async function GET() {
         createdBy: true,
         assignedTo: true,
         assets: true,
+        comments: {
+          include: { user: true },
+          orderBy: { createdAt: "desc" },
+          take: 3,
+        },
       },
       orderBy: { createdAt: "desc" },
     })

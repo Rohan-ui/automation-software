@@ -5,6 +5,10 @@ import { prisma } from "@/lib/prisma"
 
 export async function GET(request: NextRequest) {
   try {
+    if (!prisma) {
+      return NextResponse.json({ error: "Database not available" }, { status: 503 })
+    }
+
     const session = await getServerSession(authOptions)
     if (!session || !["ADMIN", "MANAGER"].includes(session.user.role)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
