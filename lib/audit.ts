@@ -53,6 +53,7 @@ export const entityTypes = {
   PROJECT: "PROJECT",
   COMMENT: "COMMENT",
   ASSET: "ASSET",
+  SYSTEM: "SYSTEM", // Added SYSTEM entity type
 }
 
 export async function logAuditAction(data: AuditLogData) {
@@ -67,6 +68,28 @@ export async function logAuditAction(data: AuditLogData) {
         newValues: data.newValues,
         ipAddress: data.ipAddress,
         userAgent: data.userAgent,
+      },
+    })
+  } catch (error) {
+    console.error("Failed to create audit log:", error)
+  }
+}
+
+export async function logAudit(data: {
+  action: string
+  userId: string
+  details: string
+  metadata?: any
+}) {
+  try {
+    await prisma.auditLog.create({
+      data: {
+        userId: data.userId,
+        action: data.action as any,
+        entityType: "SYSTEM", // Default entity type
+        entityId: data.metadata?.projectId || data.metadata?.postId || data.metadata?.clientId,
+        oldValues: data.metadata ? JSON.stringify(data.metadata) : undefined,
+        newValues: data.details,
       },
     })
   } catch (error) {

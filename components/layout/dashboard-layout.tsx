@@ -1,12 +1,14 @@
 "use client"
 
 import type React from "react"
+import { CheckCircle } from "lucide-react" // Import CheckCircle icon
 
 import { useSession, signOut } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { NotificationCenter } from "./notification-center"
+import { Badge } from "@/components/ui/badge"
 import {
   LayoutDashboard,
   Users,
@@ -29,6 +31,7 @@ import { useTheme } from "next-themes"
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { name: "My Tasks", href: "/dashboard/tasks", icon: CheckCircle, roles: ["DESIGNER"] }, // Added My Tasks for designers
   { name: "Projects", href: "/dashboard/projects", icon: FolderOpen },
   { name: "Posts", href: "/dashboard/posts", icon: FileText },
   { name: "Calendar", href: "/dashboard/calendar", icon: Calendar },
@@ -76,55 +79,96 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
       return ["Dashboard", "Posts"].includes(item.name)
     }
     if (session.user.role === "DESIGNER") {
-      return ["Dashboard", "Projects", "Posts", "Calendar", "Assets"].includes(item.name)
+      return ["Dashboard", "My Tasks", "Projects", "Posts", "Calendar", "Assets"].includes(item.name) // Added My Tasks to designer navigation
     }
     return true // Admin and Manager see all
   })
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="bg-card shadow-sm border-b">
-        <div className="flex items-center justify-between px-6 py-4">
-          <div className="flex items-center space-x-4">
-            <h1 className="text-xl font-semibold">Post Management System</h1>
+      <header className="bg-card shadow-sm border-b sticky top-0 z-50">
+        <div className="flex items-center justify-between px-6 py-3">
+          <div className="flex items-center space-x-6">
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+                <LayoutDashboard className="h-4 w-4 text-primary-foreground" />
+              </div>
+              <div>
+                <h1 className="text-lg font-semibold text-foreground">Post Management</h1>
+                <p className="text-xs text-muted-foreground">Content Management System</p>
+              </div>
+            </div>
           </div>
 
           <div className="flex items-center space-x-4">
-            <span className="text-sm text-muted-foreground">{session.user.role}</span>
-            <Button variant="ghost" size="sm" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
-              <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-              <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-              <span className="sr-only">Toggle theme</span>
-            </Button>
-            <NotificationCenter />
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                  <Avatar className="h-8 w-8">
-                    <AvatarFallback>{session.user.name?.charAt(0).toUpperCase()}</AvatarFallback>
-                  </Avatar>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56" align="end">
-                <DropdownMenuItem asChild>
-                  <Link href="/dashboard/profile">
-                    <User className="mr-2 h-4 w-4" />
-                    Profile
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/dashboard/settings">
-                    <Settings className="mr-2 h-4 w-4" />
-                    Settings
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => signOut()}>
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Sign out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <div className="hidden md:flex items-center space-x-3 px-3 py-2 bg-accent/50 rounded-lg">
+              <div className="text-right">
+                <p className="text-sm font-medium text-foreground">{session.user.name}</p>
+                <p className="text-xs text-muted-foreground">{session.user.role}</p>
+              </div>
+              <div className="w-px h-8 bg-border"></div>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+                className="h-9 w-9"
+              >
+                <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+                <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+                <span className="sr-only">Toggle theme</span>
+              </Button>
+
+              <NotificationCenter />
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="relative h-9 w-9 rounded-full hover:bg-accent">
+                    <Avatar className="h-8 w-8">
+                      <AvatarFallback className="bg-primary text-primary-foreground font-medium">
+                        {session.user.name?.charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-64" align="end" sideOffset={8}>
+                  <div className="px-3 py-2 border-b">
+                    <p className="font-medium text-sm">{session.user.name}</p>
+                    <p className="text-xs text-muted-foreground">{session.user.email}</p>
+                    <div className="flex items-center mt-1">
+                      <Badge variant="secondary" className="text-xs">
+                        {session.user.role}
+                      </Badge>
+                    </div>
+                  </div>
+
+                  <DropdownMenuItem asChild>
+                    <Link href="/dashboard/profile" className="cursor-pointer">
+                      <User className="mr-2 h-4 w-4" />
+                      Profile Settings
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/dashboard/settings" className="cursor-pointer">
+                      <Settings className="mr-2 h-4 w-4" />
+                      System Settings
+                    </Link>
+                  </DropdownMenuItem>
+
+                  <div className="border-t mt-1 pt-1">
+                    <DropdownMenuItem
+                      onClick={() => signOut({ callbackUrl: "/auth/signin" })}
+                      className="cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950"
+                    >
+                      <LogOut className="mr-2 h-4 w-4" />
+                      Sign Out
+                    </DropdownMenuItem>
+                  </div>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
         </div>
       </header>
