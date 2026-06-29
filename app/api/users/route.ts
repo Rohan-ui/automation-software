@@ -18,14 +18,28 @@ export async function GET(request: NextRequest) {
         id: true,
         name: true,
         email: true,
-        role: true,
         avatar: true,
         createdAt: true,
+        roleId: true,
+        roles: {
+          select: {
+            name: true,
+          },
+        },
       },
       orderBy: { createdAt: "desc" },
     })
 
-    return NextResponse.json({ users })
+    const mappedUsers = users.map((user) => ({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      avatar: user.avatar,
+      createdAt: user.createdAt,
+      role: user.roles?.name || "DESIGNER",
+    }))
+
+    return NextResponse.json({ users: mappedUsers })
   } catch (error) {
     console.error("Error fetching users:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
@@ -60,6 +74,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "User with this email already exists" }, { status: 400 })
     }
 
+    // Find the role record by name
+    const roleRecord = await prisma.roles.findUnique({
+      where: { name: role },
+    })
+
     // Hash password with bcrypt (cost factor 12)
     const hashedPassword = await bcrypt.hash(password, 12)
 
@@ -69,7 +88,10 @@ export async function POST(request: NextRequest) {
         name,
         email,
         password: hashedPassword,
-        role: role as any,
+        ...(roleRecord ? { roleId: roleRecord.id } : {}),
+      },
+      include: {
+        roles: true,
       },
     })
 
@@ -78,7 +100,7 @@ export async function POST(request: NextRequest) {
       userId: session.user.id,
       action: "CREATE",
       entityType: "User",
-      entityId: user.id,
+      entityId: String(user.id),
       newValues: JSON.stringify({ name, email, role }),
       ipAddress: getClientIp(request),
       userAgent: request.headers.get("user-agent") || "unknown",
@@ -86,7 +108,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       message: "User created successfully",
-      user: { id: user.id, name: user.name, email: user.email, role: user.role },
+      user: { id: user.id, name: user.name, email: user.email, role: user.roles?.name || role },
     })
   } catch (error) {
     console.error("Error creating user:", error)

@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma"
 import { logAuditAction } from "@/lib/audit"
 import { getClientIp } from "@/lib/server-utils"
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.id || !["ADMIN", "MANAGER"].includes(session.user.role)) {
@@ -13,11 +13,12 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     }
 
     const { name, email, role } = await request.json()
-    const userId = params.id
+    const { id: userId } = await params
 
     // Get current user data for audit log
     const currentUser = await prisma.user.findUnique({
-      where: { id: userId },
+      where: { id: parseInt(userId) },
+      include: { roles: true },
     })
 
     if (!currentUser) {
@@ -25,7 +26,8 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     }
 
     // Only admins can modify admin users or assign admin role
-    if ((currentUser.role === "ADMIN" || role === "ADMIN") && session.user.role !== "ADMIN") {
+    const currentRole = currentUser.roles?.name || ""
+    if ((currentRole === "ADMIN" || role === "ADMIN") && session.user.role !== "ADMIN") {
       return NextResponse.json({ error: "Only admins can modify admin users" }, { status: 403 })
     }
 
@@ -34,15 +36,25 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       const existingUser = await prisma.user.findUnique({
         where: { email },
       })
-      if (existingUser && existingUser.id !== userId) {
+      if (existingUser && String(existingUser.id) !== userId) {
         return NextResponse.json({ error: "Email already in use" }, { status: 400 })
       }
     }
 
+    // Find the role record by name
+    const roleRecord = await prisma.roles.findUnique({
+      where: { name: role },
+    })
+
     // Update user
     const updatedUser = await prisma.user.update({
-      where: { id: userId },
-      data: { name, email, role: role as any },
+      where: { id: parseInt(userId) },
+      data: {
+        name,
+        email,
+        ...(roleRecord ? { roleId: roleRecord.id } : {}),
+      },
+      include: { roles: true },
     })
 
     // Log audit action
@@ -51,7 +63,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       action: "UPDATE",
       entityType: "User",
       entityId: userId,
-      oldValues: JSON.stringify({ name: currentUser.name, email: currentUser.email, role: currentUser.role }),
+      oldValues: JSON.stringify({ name: currentUser.name, email: currentUser.email, role: currentRole }),
       newValues: JSON.stringify({ name, email, role }),
       ipAddress: getClientIp(request),
       userAgent: request.headers.get("user-agent") || "unknown",
@@ -59,7 +71,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
     return NextResponse.json({
       message: "User updated successfully",
-      user: { id: updatedUser.id, name: updatedUser.name, email: updatedUser.email, role: updatedUser.role },
+      user: { id: updatedUser.id, name: updatedUser.name, email: updatedUser.email, role: updatedUser.roles?.name || role },
     })
   } catch (error) {
     console.error("Error updating user:", error)
@@ -67,23 +79,24 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.id || session.user.role !== "ADMIN") {
       return NextResponse.json({ error: "Only admins can delete users" }, { status: 403 })
     }
 
-    const userId = params.id
+    const { id: userId } = await params
 
     // Prevent self-deletion
-    if (userId === session.user.id) {
+    if (userId === String(session.user.id)) {
       return NextResponse.json({ error: "Cannot delete your own account" }, { status: 400 })
     }
 
     // Get user data for audit log
     const user = await prisma.user.findUnique({
-      where: { id: userId },
+      where: { id: parseInt(userId) },
+      include: { roles: true },
     })
 
     if (!user) {
@@ -92,7 +105,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
 
     // Delete user
     await prisma.user.delete({
-      where: { id: userId },
+      where: { id: parseInt(userId) },
     })
 
     // Log audit action
@@ -101,7 +114,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       action: "DELETE",
       entityType: "User",
       entityId: userId,
-      oldValues: JSON.stringify({ name: user.name, email: user.email, role: user.role }),
+      oldValues: JSON.stringify({ name: user.name, email: user.email, role: user.roles?.name }),
       ipAddress: getClientIp(request),
       userAgent: request.headers.get("user-agent") || "unknown",
     })

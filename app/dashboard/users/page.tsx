@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useSession } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -10,6 +10,8 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   Dialog,
   DialogContent,
@@ -18,11 +20,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Label } from "@/components/ui/label"
-import { Trash2, Edit, Plus, Search } from "lucide-react"
+import { Trash2, Edit, Plus, Search, MoreHorizontal, RefreshCw, Users, Shield, UserCheck } from "lucide-react"
+import { format } from "date-fns"
 
 interface User {
-  id: string
+  id: number | string
   name: string
   email: string
   role: string
@@ -34,6 +38,7 @@ export default function UsersPage() {
   const { data: session } = useSession()
   const [users, setUsers] = useState<User[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [roleFilter, setRoleFilter] = useState("ALL")
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
@@ -44,6 +49,8 @@ export default function UsersPage() {
     role: "DESIGNER",
     password: "",
   })
+  const [formError, setFormError] = useState<string | null>(null)
+  const [formSubmitting, setFormSubmitting] = useState(false)
 
   useEffect(() => {
     fetchUsers()
@@ -51,13 +58,17 @@ export default function UsersPage() {
 
   const fetchUsers = async () => {
     try {
+      setIsLoading(true)
+      setError(null)
       const response = await fetch("/api/users")
-      if (response.ok) {
-        const data = await response.json()
-        setUsers(data.users)
+      if (!response.ok) {
+        throw new Error("Failed to fetch users")
       }
-    } catch (error) {
-      console.error("Error fetching users:", error)
+      const data = await response.json()
+      setUsers(data.users || [])
+    } catch (err) {
+      console.error("Error fetching users:", err)
+      setError(err instanceof Error ? err.message : "An unexpected error occurred")
     } finally {
       setIsLoading(false)
     }
@@ -65,6 +76,8 @@ export default function UsersPage() {
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault()
+    setFormError(null)
+    setFormSubmitting(true)
     try {
       const response = await fetch("/api/users", {
         method: "POST",
@@ -72,13 +85,21 @@ export default function UsersPage() {
         body: JSON.stringify(formData),
       })
 
-      if (response.ok) {
-        await fetchUsers()
-        setIsCreateDialogOpen(false)
-        setFormData({ name: "", email: "", role: "DESIGNER", password: "" })
+      const data = await response.json()
+
+      if (!response.ok) {
+        setFormError(data.error || "Failed to create user")
+        return
       }
-    } catch (error) {
-      console.error("Error creating user:", error)
+
+      await fetchUsers()
+      setIsCreateDialogOpen(false)
+      setFormData({ name: "", email: "", role: "DESIGNER", password: "" })
+    } catch (err) {
+      console.error("Error creating user:", err)
+      setFormError("Network error. Please try again.")
+    } finally {
+      setFormSubmitting(false)
     }
   }
 
@@ -86,6 +107,8 @@ export default function UsersPage() {
     e.preventDefault()
     if (!editingUser) return
 
+    setFormError(null)
+    setFormSubmitting(true)
     try {
       const response = await fetch(`/api/users/${editingUser.id}`, {
         method: "PUT",
@@ -97,41 +120,55 @@ export default function UsersPage() {
         }),
       })
 
-      if (response.ok) {
-        await fetchUsers()
-        setEditingUser(null)
-        setFormData({ name: "", email: "", role: "DESIGNER", password: "" })
+      const data = await response.json()
+
+      if (!response.ok) {
+        setFormError(data.error || "Failed to update user")
+        return
       }
-    } catch (error) {
-      console.error("Error updating user:", error)
+
+      await fetchUsers()
+      setEditingUser(null)
+      setFormData({ name: "", email: "", role: "DESIGNER", password: "" })
+    } catch (err) {
+      console.error("Error updating user:", err)
+      setFormError("Network error. Please try again.")
+    } finally {
+      setFormSubmitting(false)
     }
   }
 
-  const handleDeleteUser = async (userId: string) => {
-    if (!confirm("Are you sure you want to delete this user?")) return
+  const handleDeleteUser = async (userId: number | string) => {
+    if (!confirm("Are you sure you want to delete this user? This action cannot be undone.")) return
 
     try {
       const response = await fetch(`/api/users/${userId}`, {
         method: "DELETE",
       })
 
-      if (response.ok) {
-        await fetchUsers()
+      if (!response.ok) {
+        const data = await response.json()
+        alert(data.error || "Failed to delete user")
+        return
       }
-    } catch (error) {
-      console.error("Error deleting user:", error)
+
+      await fetchUsers()
+    } catch (err) {
+      console.error("Error deleting user:", err)
     }
   }
 
-  const filteredUsers = users.filter((user) => {
-    const matchesSearch =
-      user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesRole = roleFilter === "ALL" || user.role === roleFilter
-    return matchesSearch && matchesRole
-  })
+  const filteredUsers = useMemo(() => {
+    return users.filter((user) => {
+      const matchesSearch =
+        user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.email.toLowerCase().includes(searchTerm.toLowerCase())
+      const matchesRole = roleFilter === "ALL" || user.role === roleFilter
+      return matchesSearch && matchesRole
+    })
+  }, [users, searchTerm, roleFilter])
 
-  const getRoleBadgeVariant = (role: string) => {
+  const getRoleBadgeVariant = (role: string): "destructive" | "default" | "secondary" | "outline" => {
     switch (role) {
       case "ADMIN":
         return "destructive"
@@ -146,20 +183,83 @@ export default function UsersPage() {
     }
   }
 
+  const roleCounts = useMemo(() => {
+    const counts: Record<string, number> = {}
+    users.forEach((u) => {
+      counts[u.role] = (counts[u.role] || 0) + 1
+    })
+    return counts
+  }, [users])
+
   if (!session || !["ADMIN", "MANAGER"].includes(session.user.role)) {
-    return <div>Access denied. Only admins and managers can manage users.</div>
+    return (
+      <Card>
+        <CardContent className="py-12 text-center">
+          <Shield className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
+          <h3 className="text-lg font-medium mb-1">Access Denied</h3>
+          <p className="text-muted-foreground text-sm">Only admins and managers can manage users.</p>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <Skeleton className="h-8 w-48 mb-2" />
+            <Skeleton className="h-4 w-64" />
+          </div>
+          <Skeleton className="h-10 w-32" />
+        </div>
+        <div className="flex gap-4">
+          <Skeleton className="h-10 flex-1" />
+          <Skeleton className="h-10 w-48" />
+        </div>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="space-y-4">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Skeleton key={i} className="h-14 w-full" />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+            <div className="text-4xl mb-4">⚠️</div>
+            <h3 className="text-lg font-medium mb-2">Failed to Load Users</h3>
+            <p className="text-muted-foreground text-sm mb-4 max-w-md">{error}</p>
+            <Button onClick={fetchUsers} variant="outline" size="sm">
+              <RefreshCw className="h-4 w-4 mr-2" /> Try Again
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      {/* Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">User Management</h1>
-          <p className="text-muted-foreground">Manage system users and their roles</p>
+          <h1 className="text-3xl font-bold tracking-tight">User Management</h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            Manage system users and their roles ({users.length} total)
+          </p>
         </div>
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+        <Dialog open={isCreateDialogOpen} onOpenChange={(open) => { setIsCreateDialogOpen(open); setFormError(null) }}>
           <DialogTrigger asChild>
-            <Button>
+            <Button className="shadow-sm">
               <Plus className="mr-2 h-4 w-4" />
               Add User
             </Button>
@@ -170,6 +270,11 @@ export default function UsersPage() {
               <DialogDescription>Add a new user to the system</DialogDescription>
             </DialogHeader>
             <form onSubmit={handleCreateUser} className="space-y-4">
+              {formError && (
+                <div className="rounded-md bg-destructive/10 border border-destructive/20 p-3 text-sm text-destructive">
+                  {formError}
+                </div>
+              )}
               <div className="space-y-2">
                 <Label htmlFor="name">Full Name</Label>
                 <Input
@@ -177,6 +282,7 @@ export default function UsersPage() {
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   required
+                  placeholder="John Doe"
                 />
               </div>
               <div className="space-y-2">
@@ -187,6 +293,7 @@ export default function UsersPage() {
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   required
+                  placeholder="john@example.com"
                 />
               </div>
               <div className="space-y-2">
@@ -212,97 +319,188 @@ export default function UsersPage() {
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   required
                   minLength={8}
+                  placeholder="Minimum 8 characters"
                 />
               </div>
-              <Button type="submit" className="w-full">
-                Create User
+              <Button type="submit" className="w-full" disabled={formSubmitting}>
+                {formSubmitting ? "Creating..." : "Create User"}
               </Button>
             </form>
           </DialogContent>
         </Dialog>
       </div>
 
-      <div className="flex gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-          <Input
-            placeholder="Search users..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-        <Select value={roleFilter} onValueChange={setRoleFilter}>
-          <SelectTrigger className="w-48">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="ALL">All Roles</SelectItem>
-            <SelectItem value="ADMIN">Admin</SelectItem>
-            <SelectItem value="MANAGER">Manager</SelectItem>
-            <SelectItem value="DESIGNER">Designer</SelectItem>
-            <SelectItem value="CLIENT">Client</SelectItem>
-          </SelectContent>
-        </Select>
+      {/* Role Summary Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[
+          { role: "ADMIN", label: "Admins", icon: Shield, color: "text-red-600 bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-900" },
+          { role: "MANAGER", label: "Managers", icon: UserCheck, color: "text-blue-600 bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-900" },
+          { role: "DESIGNER", label: "Designers", icon: Edit, color: "text-purple-600 bg-purple-50 dark:bg-purple-950/30 border-purple-200 dark:border-purple-900" },
+          { role: "CLIENT", label: "Clients", icon: Users, color: "text-gray-600 bg-gray-50 dark:bg-gray-950/30 border-gray-200 dark:border-gray-800" },
+        ].map(({ role, label, icon: Icon, color }) => (
+          <Card
+            key={role}
+            className={`cursor-pointer transition-all hover:shadow-md ${roleFilter === role ? "ring-2 ring-primary" : ""} ${color}`}
+            onClick={() => setRoleFilter(roleFilter === role ? "ALL" : role)}
+          >
+            <CardContent className="p-4 flex items-center gap-3">
+              <Icon className="h-5 w-5 shrink-0" />
+              <div>
+                <p className="text-xl font-bold leading-none">{roleCounts[role] || 0}</p>
+                <p className="text-xs font-medium mt-0.5">{label}</p>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
-      <div className="grid gap-4">
-        {isLoading ? (
-          <div>Loading users...</div>
-        ) : (
-          filteredUsers.map((user) => (
-            <Card key={user.id}>
-              <CardContent className="flex items-center justify-between p-6">
-                <div className="flex items-center gap-4">
-                  <Avatar>
-                    <AvatarImage src={user.avatar || "/placeholder.svg"} />
-                    <AvatarFallback>{user.name.charAt(0).toUpperCase()}</AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <h3 className="font-semibold">{user.name}</h3>
-                    <p className="text-sm text-muted-foreground">{user.email}</p>
-                    <p className="text-xs text-muted-foreground">
-                      Created: {new Date(user.createdAt).toLocaleDateString()}
-                    </p>
+      {/* Search and Filter Bar */}
+      <Card className="shadow-sm border-border/60">
+        <CardContent className="p-4">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+              <Input
+                placeholder="Search users by name or email..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <Select value={roleFilter} onValueChange={setRoleFilter}>
+              <SelectTrigger className="w-full sm:w-48">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All Roles</SelectItem>
+                <SelectItem value="ADMIN">Admin</SelectItem>
+                <SelectItem value="MANAGER">Manager</SelectItem>
+                <SelectItem value="DESIGNER">Designer</SelectItem>
+                <SelectItem value="CLIENT">Client</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Users Table */}
+      <Card className="shadow-sm border-border/60 overflow-hidden">
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-muted/30 hover:bg-muted/30">
+              <TableHead className="font-semibold">User</TableHead>
+              <TableHead className="font-semibold">Email</TableHead>
+              <TableHead className="font-semibold">Role</TableHead>
+              <TableHead className="font-semibold">Created</TableHead>
+              <TableHead className="text-right font-semibold">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredUsers.map((user) => (
+              <TableRow key={user.id} className="hover:bg-muted/40 transition-colors">
+                <TableCell>
+                  <div className="flex items-center gap-3">
+                    <Avatar className="h-9 w-9">
+                      <AvatarImage src={user.avatar || "/placeholder.svg"} />
+                      <AvatarFallback className="text-sm font-medium">
+                        {user.name.charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p className="font-medium text-sm">{user.name}</p>
+                      <p className="text-[11px] text-muted-foreground font-mono">ID: {user.id}</p>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant={getRoleBadgeVariant(user.role)}>{user.role}</Badge>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setEditingUser(user)
-                      setFormData({
-                        name: user.name,
-                        email: user.email,
-                        role: user.role,
-                        password: "",
-                      })
-                    }}
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  {session.user.role === "ADMIN" && user.id !== session.user.id && (
-                    <Button variant="outline" size="sm" onClick={() => handleDeleteUser(user.id)}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))
-        )}
-      </div>
+                </TableCell>
+                <TableCell className="text-sm text-muted-foreground">{user.email}</TableCell>
+                <TableCell>
+                  <Badge variant={getRoleBadgeVariant(user.role)} className="text-xs">
+                    {user.role}
+                  </Badge>
+                </TableCell>
+                <TableCell className="text-xs text-muted-foreground">
+                  {user.createdAt ? format(new Date(user.createdAt), "MMM dd, yyyy") : "—"}
+                </TableCell>
+                <TableCell className="text-right">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setEditingUser(user)
+                          setFormData({
+                            name: user.name,
+                            email: user.email,
+                            role: user.role,
+                            password: "",
+                          })
+                          setFormError(null)
+                        }}
+                      >
+                        <Edit className="h-4 w-4 mr-2" /> Edit User
+                      </DropdownMenuItem>
+                      {session.user.role === "ADMIN" && String(user.id) !== String(session.user.id) && (
+                        <DropdownMenuItem
+                          onClick={() => handleDeleteUser(user.id)}
+                          className="text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" /> Delete User
+                        </DropdownMenuItem>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </Card>
+
+      {filteredUsers.length === 0 && (
+        <Card className="border-dashed">
+          <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+            <Users className="h-12 w-12 text-muted-foreground/50 mb-4" />
+            <h3 className="text-lg font-medium mb-1">
+              {searchTerm || roleFilter !== "ALL" ? "No users match your filters" : "No users found"}
+            </h3>
+            <p className="text-muted-foreground text-sm max-w-sm mb-4">
+              {searchTerm || roleFilter !== "ALL"
+                ? "Try adjusting your search or role filter."
+                : "Get started by adding your first user."}
+            </p>
+            {(searchTerm || roleFilter !== "ALL") && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSearchTerm("")
+                  setRoleFilter("ALL")
+                }}
+              >
+                Clear Filters
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Edit User Dialog */}
-      <Dialog open={!!editingUser} onOpenChange={() => setEditingUser(null)}>
+      <Dialog open={!!editingUser} onOpenChange={(open) => { if (!open) { setEditingUser(null); setFormError(null) } }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit User</DialogTitle>
             <DialogDescription>Update user information</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleUpdateUser} className="space-y-4">
+            {formError && (
+              <div className="rounded-md bg-destructive/10 border border-destructive/20 p-3 text-sm text-destructive">
+                {formError}
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="editName">Full Name</Label>
               <Input
@@ -336,8 +534,8 @@ export default function UsersPage() {
                 </SelectContent>
               </Select>
             </div>
-            <Button type="submit" className="w-full">
-              Update User
+            <Button type="submit" className="w-full" disabled={formSubmitting}>
+              {formSubmitting ? "Updating..." : "Update User"}
             </Button>
           </form>
         </DialogContent>
