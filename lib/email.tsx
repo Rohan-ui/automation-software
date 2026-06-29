@@ -1,20 +1,32 @@
 import nodemailer from "nodemailer"
 
+// All SMTP settings must come from environment variables — never hardcode credentials
+const requiredEnvVars = ["SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASS"] as const
+
+for (const envVar of requiredEnvVars) {
+  if (!process.env[envVar]) {
+    throw new Error(
+      `Missing required environment variable: ${envVar}. ` +
+      `Add it to your .env file before starting the server.`
+    )
+  }
+}
+
 const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 587,
-  secure: false,
+  host: process.env.SMTP_HOST,
+  port: Number(process.env.SMTP_PORT),
+  secure: process.env.SMTP_SECURE === "true", // true for port 465, false for 587
   auth: {
-    user: "pbind4545@gmail.com",
-    pass: "eptg xytk wsxe waet",
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
   },
 })
 
 export async function sendPasswordResetEmail(email: string, resetToken: string) {
   const resetUrl = `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/auth/reset-password?token=${resetToken}`
 
-  const mailOptions = {
-    from: process.env.FROM_EMAIL || "pbind4545@gmail.com",
+  await transporter.sendMail({
+    from: process.env.FROM_EMAIL || process.env.SMTP_USER,
     to: email,
     subject: "Password Reset Request",
     html: `
@@ -28,20 +40,12 @@ export async function sendPasswordResetEmail(email: string, resetToken: string) 
         <p style="color: #666; font-size: 12px;">This is an automated email from Post Management System.</p>
       </div>
     `,
-  }
-
-  try {
-    await transporter.sendMail(mailOptions)
-    console.log("Password reset email sent successfully")
-  } catch (error) {
-    console.error("Error sending password reset email:", error)
-    throw new Error("Failed to send password reset email")
-  }
+  })
 }
 
 export async function sendWelcomeEmail(email: string, name: string) {
-  const mailOptions = {
-    from: process.env.FROM_EMAIL || "pbind4545@gmail.com",
+  await transporter.sendMail({
+    from: process.env.FROM_EMAIL || process.env.SMTP_USER,
     to: email,
     subject: "Welcome to Post Management System",
     html: `
@@ -55,13 +59,6 @@ export async function sendWelcomeEmail(email: string, name: string) {
         <p style="color: #666; font-size: 12px;">This is an automated email from Post Management System.</p>
       </div>
     `,
-  }
-
-  try {
-    await transporter.sendMail(mailOptions)
-    console.log("Welcome email sent successfully")
-  } catch (error) {
-    console.error("Error sending welcome email:", error)
-    throw new Error("Failed to send welcome email")
-  }
+  })
 }
+

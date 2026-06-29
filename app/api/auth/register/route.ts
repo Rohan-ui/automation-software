@@ -1,10 +1,15 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-
+import bcrypt from "bcryptjs"
 import { logAuditAction } from "@/lib/audit"
+import { getClientIp } from "@/lib/server-utils"
+import { rateLimit } from "@/lib/rate-limit"
 
 export async function POST(request: NextRequest) {
   try {
+    const rateLimitResponse = rateLimit(request, 10, 60 * 60 * 1000) // 10 registrations per hour per IP
+    if (rateLimitResponse) return rateLimitResponse
+
     const { name, email, password, role } = await request.json()
 
     // Validate input
@@ -25,8 +30,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "User with this email already exists" }, { status: 400 })
     }
 
-    // Hash password
-    const hashedPassword = password
+    // Hash password with bcrypt (cost factor 12)
+    const hashedPassword = await bcrypt.hash(password, 12)
 
     // Create user
     const user = await prisma.user.create({
@@ -45,7 +50,7 @@ export async function POST(request: NextRequest) {
       entityType: "User",
       entityId: user.id,
       newValues: JSON.stringify({ name, email, role }),
-      ipAddress: request.ip || "unknown",
+      ipAddress: getClientIp(request),
       userAgent: request.headers.get("user-agent") || "unknown",
     })
 

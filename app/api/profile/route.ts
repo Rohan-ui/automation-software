@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { logAuditAction } from "@/lib/audit"
+import { getClientIp } from "@/lib/server-utils"
 
 export async function PUT(request: NextRequest) {
   try {
@@ -46,7 +47,7 @@ export async function PUT(request: NextRequest) {
       entityId: session.user.id,
       oldValues: JSON.stringify({ name: currentUser.name, email: currentUser.email, avatar: currentUser.avatar }),
       newValues: JSON.stringify({ name, email, avatar }),
-      ipAddress: request.ip || "unknown",
+      ipAddress: getClientIp(request),
       userAgent: request.headers.get("user-agent") || "unknown",
     })
 

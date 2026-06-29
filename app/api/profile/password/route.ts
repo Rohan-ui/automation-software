@@ -2,7 +2,9 @@ import { type NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import bcrypt from "bcryptjs"
 import { logAuditAction } from "@/lib/audit"
+import { getClientIp } from "@/lib/server-utils"
 
 export async function PUT(request: NextRequest) {
   try {
@@ -22,14 +24,14 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
-    // Verify current password
-    const isCurrentPasswordValid = currentPassword === user.password
+    // Verify current password with bcrypt
+    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password)
     if (!isCurrentPasswordValid) {
       return NextResponse.json({ error: "Current password is incorrect" }, { status: 400 })
     }
 
-    // Hash new password
-    const hashedNewPassword = newPassword
+    // Hash new password with bcrypt (cost factor 12)
+    const hashedNewPassword = await bcrypt.hash(newPassword, 12)
 
     // Update password
     await prisma.user.update({
@@ -45,7 +47,7 @@ export async function PUT(request: NextRequest) {
       entityId: session.user.id,
       oldValues: JSON.stringify({ action: "password_change" }),
       newValues: JSON.stringify({ action: "password_changed" }),
-      ipAddress: request.ip || "unknown",
+      ipAddress: getClientIp(request),
       userAgent: request.headers.get("user-agent") || "unknown",
     })
 

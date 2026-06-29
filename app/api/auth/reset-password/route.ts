@@ -1,10 +1,15 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-
+import bcrypt from "bcryptjs"
 import { logAuditAction } from "@/lib/audit"
+import { getClientIp } from "@/lib/server-utils"
+import { rateLimit } from "@/lib/rate-limit"
 
 export async function POST(request: NextRequest) {
   try {
+    const rateLimitResponse = rateLimit(request, 10, 15 * 60 * 1000) // 10 attempts per 15 mins per IP
+    if (rateLimitResponse) return rateLimitResponse
+
     const { token, password } = await request.json()
 
     if (!token || !password) {
@@ -38,8 +43,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
-    // Hash new password
-    const hashedPassword = password
+    // Hash new password with bcrypt (cost factor 12)
+    const hashedPassword = await bcrypt.hash(password, 12)
 
     // Update user password
     await prisma.user.update({
@@ -60,7 +65,7 @@ export async function POST(request: NextRequest) {
       entityId: user.id,
       oldValues: JSON.stringify({ action: "password_reset_used" }),
       newValues: JSON.stringify({ action: "password_reset_completed" }),
-      ipAddress: request.ip || "unknown",
+      ipAddress: getClientIp(request),
       userAgent: request.headers.get("user-agent") || "unknown",
     })
 

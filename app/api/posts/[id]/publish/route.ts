@@ -38,10 +38,6 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     // 3. Handle platform-specific formatting
     // 4. Store platform post IDs for tracking
 
-    console.log(`[v0] Publishing post "${post.title}" to ${platform}`)
-    console.log(`[v0] Caption: ${post.caption}`)
-    console.log(`[v0] Assets: ${post.assets.length} files`)
-
     // Simulate API delay
     await new Promise((resolve) => setTimeout(resolve, 1000))
 

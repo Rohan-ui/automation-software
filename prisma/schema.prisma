@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,183 +7,170 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum UserRole {
-  ADMIN
-  MANAGER
-  DESIGNER
-  CLIENT
-}
-
-enum PostType {
-  PHOTO
-  REEL
-  STORY
-  CAROUSEL
-  CUSTOM
-}
-
-enum PostStatus {
-  DRAFT
-  SUBMITTED
-  APPROVED
-  REJECTED
-  SCHEDULED
-  POSTED
-}
-
-enum Platform {
-  INSTAGRAM
-  FACEBOOK
-}
-
-enum AuditAction {
-  CREATE
-  UPDATE
-  DELETE
-  LOGIN
-  LOGOUT
-  APPROVE
-  REJECT
-  SCHEDULE
-  PUBLISH
-}
-
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String
-  role      UserRole
-  avatar    String?
-  password  String? // Added password field for proper authentication
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                                                 Int                    @id @default(autoincrement())
+  email                                              String                 @unique
+  name                                               String
+  roleId                                             Int?
+  avatar                                             String?
+  password                                           String?
+  createdAt                                          DateTime               @default(now())
+  updatedAt                                          DateTime               @updatedAt
+  SmtpDetails                                        SmtpDetails?
+  approval_attachments                               approval_attachments[]
+  approval_flows_approval_flows_assignedToIdTousers  approval_flows[]       @relation("approval_flows_assignedToIdTousers")
+  approval_flows_approval_flows_reviewedByIdTousers  approval_flows[]       @relation("approval_flows_reviewedByIdTousers")
+  approval_flows_approval_flows_submittedByIdTousers approval_flows[]       @relation("approval_flows_submittedByIdTousers")
+  approval_history                                   approval_history[]
+  assets                                             Asset[]
+  auditLogs                                          AuditLog[]
+  comments                                           Comment[]
+  sentInvites                                        Invite[]
+  notifications                                      Notification[]
+  post_assignments                                   post_assignments[]
+  assignedPosts                                      Post[]                 @relation("AssignedPosts")
+  createdPosts                                       Post[]                 @relation("CreatedPosts")
+  managedProjects                                    Project[]              @relation("ClientProjects")
+  task_logs                                          task_logs[]
+  user_activities                                    user_activities[]
+  user_metrics                                       user_metrics[]
+  roles                                              roles?                 @relation(fields: [roleId], references: [id])
+  assignedProjects                                   Project[]              @relation("AssignedProjects")
 
-  // Relations
-  clientProjects    Project[] @relation("ClientProjects")
-  assignedProjects  Project[] @relation("AssignedProjects")
-  createdPosts      Post[]    @relation("CreatedPosts")
-  assignedPosts     Post[]    @relation("AssignedPosts")
-  comments          Comment[]
-  notifications     Notification[]
-  auditLogs         AuditLog[] // Added audit logs relation
-  sentInvites       Invite[]
-
+  @@index([roleId], map: "users_roleId_fkey")
   @@map("users")
 }
 
 model Client {
-  id          String   @id @default(cuid())
-  name        String
-  email       String   @unique
-  phone       String?
-  company     String?
-  avatar      String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Relations
-  projects    Project[]
+  id        String    @id @default(cuid())
+  name      String
+  email     String
+  phone     String?
+  company   String?
+  avatar    String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  projects  Project[]
 
   @@map("clients")
 }
 
 model Project {
-  id          String   @id @default(cuid())
-  name        String
-  description String?
-  startDate   DateTime
-  endDate     DateTime?
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                 String               @id @default(cuid())
+  name               String
+  description        String?
+  startDate          DateTime
+  endDate            DateTime?
+  isActive           Boolean              @default(true)
+  postTypes          String?              @db.LongText
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  clientId           String
+  managerId          Int?
+  posts              Post[]
+  project_strategies project_strategies[]
+  client             Client               @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  manager            User?                @relation("ClientProjects", fields: [managerId], references: [id])
+  user_activities    user_activities[]
+  assignedUsers      User[]               @relation("AssignedProjects")
 
-  // Foreign Keys
-  clientId    String
-  managerId   String?
-
-  // Relations
-  client        Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  manager       User?  @relation("ClientProjects", fields: [managerId], references: [id])
-  assignedUsers User[] @relation("AssignedProjects")
-  posts         Post[]
-
+  @@index([clientId], map: "projects_clientId_fkey")
+  @@index([managerId], map: "projects_managerId_fkey")
   @@map("projects")
 }
 
 model Post {
-  id          String     @id @default(cuid())
-  title       String
-  caption     String?    @db.Text
-  type        PostType
-  status      PostStatus @default(DRAFT)
-  scheduledAt DateTime?
-  postedAt    DateTime?
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  id                   String                     @id @default(cuid())
+  title                String
+  caption              String?                    @db.Text
+  type                 PostType
+  status               posts_status               @default(DRAFT)
+  scheduledAt          DateTime?
+  postedAt             DateTime?
+  approvedAt           DateTime?
+  rejectedAt           DateTime?
+  createdAt            DateTime                   @default(now())
+  updatedAt            DateTime                   @updatedAt
+  festivalId           Int?
+  customData           String?                    @db.LongText
+  projectId            String
+  createdById          Int
+  assignedToId         Int?
+  notes                String?                    @db.Text
+  referenceUrl         String?                    @db.Text
+  contentApprovedAt    DateTime?
+  contentApprovedById  Int?
+  contentRejectedAt    DateTime?
+  contentRejectedById  Int?
+  contentStatus        posts_contentStatus        @default(DRAFT)
+  designApprovedAt     DateTime?
+  designApprovedById   Int?
+  designRejectedAt     DateTime?
+  designRejectedById   Int?
+  designerHeadApproval posts_designerHeadApproval @default(DRAFT)
+  scheduledFor         DateTime?
+  writeUp              String?                    @db.Text
+  assignedToMultiple   String?                    @db.LongText
+  approval_flows       approval_flows[]
+  assets               Asset[]
+  comments             Comment[]
+  post_assignments     post_assignments[]
+  platforms            PostPlatform[]
+  assignedTo           User?                      @relation("AssignedPosts", fields: [assignedToId], references: [id])
+  createdBy            User                       @relation("CreatedPosts", fields: [createdById], references: [id])
+  festivals            festivals?                 @relation(fields: [festivalId], references: [id])
+  project              Project                    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task_logs            task_logs[]
 
-  // Foreign Keys
-  projectId    String
-  createdById  String
-  assignedToId String?
-
-  // Relations
-  project      Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  createdBy    User           @relation("CreatedPosts", fields: [createdById], references: [id])
-  assignedTo   User?          @relation("AssignedPosts", fields: [assignedToId], references: [id])
-  assets       Asset[]
-  comments     Comment[]
-  platforms    PostPlatform[] // Many-to-many relationship
-
+  @@index([assignedToId], map: "posts_assignedToId_fkey")
+  @@index([createdById], map: "posts_createdById_fkey")
+  @@index([festivalId], map: "posts_festivalId_fkey")
+  @@index([projectId], map: "posts_projectId_fkey")
   @@map("posts")
 }
 
-// Junction table for Post-Platform relationship
 model PostPlatform {
-  id       String   @id @default(cuid())
-  platform Platform
-
-  // Foreign Keys
+  id       String                  @id @default(cuid())
+  platform post_platforms_platform
   postId   String
+  post     Post                    @relation(fields: [postId], references: [id], onDelete: Cascade)
 
-  // Relations
-  post     Post @relation(fields: [postId], references: [id], onDelete: Cascade)
-
-  // Ensure a post can't have duplicate platforms
   @@unique([postId, platform])
   @@map("post_platforms")
 }
 
 model Asset {
-  id        String   @id @default(cuid())
-  filename  String
-  url       String
-  type      String   // image, video, etc.
-  size      Int?
-  order     Int      @default(0)
-  createdAt DateTime @default(now())
+  id           String   @id @default(cuid())
+  filename     String
+  url          String
+  type         String?
+  size         Int?
+  order        Int      @default(0)
+  createdAt    DateTime @default(now())
+  postId       String
+  uploadedById Int?
+  isReference  Boolean  @default(false)
+  isEdited     Boolean  @default(false)
+  post         Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  users        User?    @relation(fields: [uploadedById], references: [id])
 
-  // Foreign Keys
-  postId    String
-
-  // Relations
-  post      Post @relation(fields: [postId], references: [id], onDelete: Cascade)
-
+  @@index([postId], map: "assets_postId_fkey")
+  @@index([uploadedById], map: "assets_uploadedById_fkey")
   @@map("assets")
 }
 
 model Comment {
-  id        String   @id @default(cuid())
-  content   String   @db.Text
-  createdAt DateTime @default(now())
-
-  // Foreign Keys
+  id        String         @id @default(cuid())
+  content   String         @db.Text
+  createdAt DateTime       @default(now())
   postId    String
-  userId    String
+  userId    Int
+  type      comments_type?
+  post      Post           @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User           @relation(fields: [userId], references: [id])
 
-  // Relations
-  post      Post @relation(fields: [postId], references: [id], onDelete: Cascade)
-  user      User @relation(fields: [userId], references: [id])
-
+  @@index([postId], map: "comments_postId_fkey")
+  @@index([userId], map: "comments_userId_fkey")
   @@map("comments")
 }
 
@@ -196,33 +180,28 @@ model Notification {
   message   String   @db.Text
   isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  // Foreign Keys
-  userId    String
-
-  // Relations
-  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
+  @@index([userId], map: "notifications_userId_fkey")
   @@map("notifications")
 }
 
 model AuditLog {
-  id          String      @id @default(cuid())
-  action      AuditAction
-  entityType  String      // e.g., "Post", "User", "Project"
-  entityId    String?     // ID of the affected entity
-  oldValues   String?     @db.Text // JSON string of old values
-  newValues   String?     @db.Text // JSON string of new values
-  ipAddress   String?
-  userAgent   String?     @db.Text
-  createdAt   DateTime    @default(now())
+  id         String   @id @default(cuid())
+  action     String   @db.Text
+  entityType String
+  entityId   String?
+  oldValues  String?  @db.Text
+  newValues  String?  @db.Text
+  feedback   String?  @db.Text
+  ipAddress  String?
+  userAgent  String?  @db.Text
+  createdAt  DateTime @default(now())
+  userId     Int
+  user       User     @relation(fields: [userId], references: [id])
 
-  // Foreign Keys
-  userId      String
-
-  // Relations
-  user        User @relation(fields: [userId], references: [id])
-
+  @@index([userId], map: "audit_logs_userId_fkey")
   @@map("audit_logs")
 }
 
@@ -240,22 +219,377 @@ model Invite {
   id        String   @id @default(cuid())
   email     String
   token     String   @unique
-  role      UserRole
+  role      String
   expiresAt DateTime
   createdAt DateTime @default(now())
-  invitedBy String
+  invitedBy Int
+  inviter   User     @relation(fields: [invitedBy], references: [id])
 
-  inviter   User @relation(fields: [invitedBy], references: [id])
+  @@index([invitedBy], map: "invites_invitedBy_fkey")
   @@map("invites")
 }
 
 model Utility {
   id        String   @id @default(cuid())
   name      String
-  type      String   // PLATFORM, POST_TYPE, etc.
-  values    Json     // Array of string values
+  type      String
+  values    String   @db.LongText
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  updatedAt DateTime @default(now()) @updatedAt
 
   @@map("utilities")
+}
+
+model SmtpDetails {
+  id         Int                    @id @default(autoincrement())
+  host       String
+  port       Int
+  username   String
+  password   String
+  encryption SmtpDetails_encryption
+  isActive   Boolean                @default(true)
+  isVerified Boolean                @default(false)
+  createdAt  DateTime               @default(now())
+  updatedAt  DateTime
+  userId     Int                    @unique
+  users      User                   @relation(fields: [userId], references: [id])
+}
+
+model approval_attachments {
+  id             String         @id
+  type           String
+  url            String
+  filename       String
+  size           Int?
+  duration       Int?
+  mimeType       String?
+  uploadedAt     DateTime       @default(now())
+  approvalFlowId String
+  uploadedById   Int
+  approval_flows approval_flows @relation(fields: [approvalFlowId], references: [id], onDelete: Cascade)
+  users          User           @relation(fields: [uploadedById], references: [id])
+
+  @@index([approvalFlowId], map: "approval_attachments_approvalFlowId_fkey")
+  @@index([uploadedById], map: "approval_attachments_uploadedById_fkey")
+}
+
+model approval_flows {
+  id                                        String                 @id
+  flowType                                  String
+  status                                    String
+  submittedAt                               DateTime?
+  reviewedAt                                DateTime?
+  feedback                                  String?                @db.Text
+  submissionCount                           Int                    @default(0)
+  version                                   Int                    @default(1)
+  timeToSubmit                              Int?
+  timeToReview                              Int?
+  createdAt                                 DateTime               @default(now())
+  updatedAt                                 DateTime
+  postId                                    String
+  submittedById                             Int?
+  reviewedById                              Int?
+  assignedToId                              Int?
+  rejectionReason                           String?                @db.Text
+  approval_attachments                      approval_attachments[]
+  users_approval_flows_assignedToIdTousers  User?                  @relation("approval_flows_assignedToIdTousers", fields: [assignedToId], references: [id])
+  posts                                     Post                   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  users_approval_flows_reviewedByIdTousers  User?                  @relation("approval_flows_reviewedByIdTousers", fields: [reviewedById], references: [id])
+  users_approval_flows_submittedByIdTousers User?                  @relation("approval_flows_submittedByIdTousers", fields: [submittedById], references: [id])
+  approval_history                          approval_history[]
+
+  @@index([assignedToId], map: "approval_flows_assignedToId_fkey")
+  @@index([postId, flowType])
+  @@index([reviewedById])
+  @@index([status])
+  @@index([submittedById])
+}
+
+model approval_history {
+  id             String         @id
+  action         String
+  fromStatus     String?
+  toStatus       String
+  feedback       String?        @db.Text
+  version        Int
+  metadata       String?        @db.LongText
+  createdAt      DateTime       @default(now())
+  approvalFlowId String
+  performedById  Int
+  approval_flows approval_flows @relation(fields: [approvalFlowId], references: [id], onDelete: Cascade)
+  users          User           @relation(fields: [performedById], references: [id])
+
+  @@index([approvalFlowId, createdAt])
+  @@index([performedById])
+}
+
+model festivals {
+  id           Int      @id @default(autoincrement())
+  name         String
+  description  String
+  date         DateTime
+  primary_type String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime
+  posts        Post[]
+}
+
+model permissions {
+  id               Int                @id @default(autoincrement())
+  name             String             @unique
+  description      String?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @default(now())
+  role_permissions role_permissions[]
+}
+
+model post_assignments {
+  id          String                 @id
+  role        String
+  stage       post_assignments_stage
+  status      String
+  assignedAt  DateTime               @default(now())
+  completedAt DateTime?
+  postId      String
+  userId      Int
+  posts       Post                   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  users       User                   @relation(fields: [userId], references: [id])
+
+  @@index([postId, role])
+  @@index([userId, status])
+}
+
+model project_strategies {
+  id        Int      @id @default(autoincrement())
+  month     Int?
+  year      Int?
+  postTypes String?  @db.LongText
+  total     Int?
+  projectId String
+  createdAt DateTime @default(now())
+  updatedAt DateTime
+  projects  Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, month, year])
+}
+
+model role_permissions {
+  id           Int         @id @default(autoincrement())
+  roleId       Int
+  permissionId Int
+  createdAt    DateTime    @default(now())
+  permissions  permissions @relation(fields: [permissionId], references: [id])
+  roles        roles       @relation(fields: [roleId], references: [id])
+
+  @@unique([roleId, permissionId])
+  @@index([permissionId], map: "role_permissions_permissionId_fkey")
+}
+
+model roles {
+  id               Int                @id @default(autoincrement())
+  name             String             @unique
+  description      String?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @default(now())
+  role_permissions role_permissions[]
+  users            User[]
+}
+
+model task_logs {
+  id        String               @id
+  action    String
+  oldStatus task_logs_oldStatus?
+  newStatus task_logs_newStatus?
+  oldValues String?              @db.LongText
+  newValues String?              @db.LongText
+  feedback  String?              @db.Text
+  ipAddress String?
+  userAgent String?              @db.Text
+  createdAt DateTime             @default(now())
+  postId    String
+  userId    Int
+  posts     Post                 @relation(fields: [postId], references: [id], onDelete: Cascade)
+  users     User                 @relation(fields: [userId], references: [id])
+
+  @@index([postId], map: "task_logs_postId_fkey")
+  @@index([userId], map: "task_logs_userId_fkey")
+}
+
+model user_activities {
+  id           String                       @id
+  activityType user_activities_activityType
+  entityType   String
+  entityId     String?
+  description  String?                      @db.Text
+  metadata     String?                      @db.LongText
+  ipAddress    String?
+  userAgent    String?                      @db.Text
+  createdAt    DateTime                     @default(now())
+  userId       Int
+  projectId    String?
+  projects     Project?                     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  users        User                         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([activityType, createdAt])
+  @@index([entityId, entityType])
+  @@index([projectId, createdAt])
+  @@index([userId, createdAt])
+}
+
+model user_metrics {
+  id                      String   @id
+  period                  String
+  periodStart             DateTime
+  periodEnd               DateTime
+  designsAssigned         Int      @default(0)
+  designsCompleted        Int      @default(0)
+  designsSubmitted        Int      @default(0)
+  designsResubmitted      Int      @default(0)
+  designsApproved         Int      @default(0)
+  designsRejected         Int      @default(0)
+  designApprovalRate      Float?
+  avgDesignResubmissions  Float?
+  avgDesignCompletionTime Float?
+  contentsCreated         Int      @default(0)
+  contentsSubmitted       Int      @default(0)
+  contentsResubmitted     Int      @default(0)
+  contentsApproved        Int      @default(0)
+  contentsRejected        Int      @default(0)
+  contentApprovalRate     Float?
+  avgContentResubmissions Float?
+  reviewsCompleted        Int      @default(0)
+  approvalsMade           Int      @default(0)
+  rejectionsMade          Int      @default(0)
+  avgReviewTime           Float?
+  totalTasks              Int      @default(0)
+  tasksCompleted          Int      @default(0)
+  commentsAdded           Int      @default(0)
+  assetsUploaded          Int      @default(0)
+  activeTime              Int?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime
+  userId                  Int
+  users                   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, period, periodStart])
+  @@index([userId, periodStart])
+}
+
+enum PostType {
+  PHOTO
+  REEL
+  STORY
+  CAROUSEL
+  CUSTOM
+}
+
+enum user_activities_activityType {
+  POST_CREATED
+  POST_ASSIGNED
+  POST_SCHEDULED
+  POST_POSTED
+  DESIGN_STARTED
+  DESIGN_UPLOADED
+  DESIGN_SUBMITTED
+  DESIGN_RESUBMITTED
+  DESIGN_APPROVED
+  DESIGN_REJECTED
+  DESIGNER_HEAD_REJECTED
+  DESIGNER_HEAD_APPROVED
+  CONTENT_SUBMITTED
+  CONTENT_RESUBMITTED
+  CONTENT_NEEDS_REVISION
+  CONTENT_APPROVED
+  CONTENT_REJECTED
+  COMMENT_ADDED
+  ASSET_UPLOADED
+  LOGIN
+  LOGOUT
+  PROJECT_CREATED
+  PROJECT_UPDATED
+}
+
+enum post_platforms_platform {
+  INSTAGRAM
+  FACEBOOK
+  TWITTER
+  LINKEDIN
+  THREADS
+  YOUTUBE
+  IGTV
+  GMB
+}
+
+enum post_assignments_stage {
+  CONTENT_REVIEW
+  DESIGN_PENDING
+  DESIGN_IN_PROGRESS
+  DESIGN_REVIEW
+  BOTH_APPROVED
+  FINAL_REVIEW
+  READY_TO_SCHEDULE
+  SCHEDULED
+  PUBLISHED
+}
+
+enum task_logs_oldStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+  SCHEDULED
+  POSTED
+  RESUBMITTED
+}
+
+enum task_logs_newStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+  SCHEDULED
+  POSTED
+  RESUBMITTED
+}
+
+enum posts_status {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+  SCHEDULED
+  POSTED
+  RESUBMITTED
+}
+
+enum SmtpDetails_encryption {
+  TLS
+  SSL
+  NONE
+}
+
+enum comments_type {
+  DESIGN
+  CONTENT
+  DESIGNER_HEAD
+}
+
+enum posts_contentStatus {
+  DRAFT
+  SUBMITTED
+  PENDING_REVIEW
+  NEEDS_REVISION
+  APPROVED
+  REJECTED
+  RESUBMITTED
+}
+
+enum posts_designerHeadApproval {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+  SCHEDULED
+  POSTED
+  RESUBMITTED
 }

@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { logAuditAction } from "@/lib/audit"
+import { getClientIp } from "@/lib/server-utils"
 
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -52,7 +53,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       entityId: userId,
       oldValues: JSON.stringify({ name: currentUser.name, email: currentUser.email, role: currentUser.role }),
       newValues: JSON.stringify({ name, email, role }),
-      ipAddress: request.ip || "unknown",
+      ipAddress: getClientIp(request),
       userAgent: request.headers.get("user-agent") || "unknown",
     })
 
@@ -101,7 +102,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       entityType: "User",
       entityId: userId,
       oldValues: JSON.stringify({ name: user.name, email: user.email, role: user.role }),
-      ipAddress: request.ip || "unknown",
+      ipAddress: getClientIp(request),
       userAgent: request.headers.get("user-agent") || "unknown",
     })
 
