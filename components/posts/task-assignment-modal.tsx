@@ -72,7 +72,11 @@ export function TaskAssignmentModal({ isOpen, onClose, post, onAssigned }: TaskA
             <p className="text-sm text-gray-600">{post.project?.client?.name}</p>
             <div className="flex items-center space-x-2 mt-2">
               <Badge variant="outline">{post.type}</Badge>
-              <Badge variant="outline">{post.platforms?.join(", ")}</Badge>
+              <Badge variant="outline">
+                {Array.isArray(post?.platforms)
+                  ? post.platforms.map((p: any) => (typeof p === "string" ? p : p.platform)).filter(Boolean).join(", ")
+                  : post?.platforms || "N/A"}
+              </Badge>
             </div>
           </div>
 

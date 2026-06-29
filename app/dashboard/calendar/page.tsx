@@ -29,6 +29,7 @@ export default async function CalendarPage() {
         include: { client: true },
       },
       createdBy: true,
+      platforms: true,
     },
     orderBy: { scheduledAt: "asc" },
   })

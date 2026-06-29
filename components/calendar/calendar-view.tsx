@@ -44,6 +44,14 @@ interface CalendarViewProps {
   }
 }
 
+const getPlatformNames = (platforms: any) => {
+  if (!platforms || !Array.isArray(platforms) || platforms.length === 0) return "No platforms"
+  return platforms
+    .map((p: any) => (typeof p === "string" ? p : p.platform))
+    .filter(Boolean)
+    .join(", ")
+}
+
 export function CalendarView({ posts, projects, currentUser }: CalendarViewProps) {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [selectedProject, setSelectedProject] = useState<string>("all")
@@ -231,7 +239,7 @@ export function CalendarView({ posts, projects, currentUser }: CalendarViewProps
                         {post.title}
                       </Link>
                       <p className="text-sm text-gray-500">
-                        {post.project.client.name} • {post.platforms.join(", ")}
+                        {post.project?.client?.name || "Unknown Client"} • {getPlatformNames(post.platforms)}
                       </p>
                     </div>
                   </div>
